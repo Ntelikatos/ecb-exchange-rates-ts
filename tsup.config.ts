@@ -5,9 +5,16 @@ export default defineConfig({
   format: ["cjs", "esm"],
   dts: true,
   clean: true,
-  sourcemap: true,
-  minify: false,
+  sourcemap: false,
+  minify: "terser",
   splitting: false,
   treeshake: true,
   outDir: "dist",
+  terserOptions: {
+    compress: {
+      drop_console: true,
+      passes: 2,
+    },
+    mangle: true,
+  },
 });
