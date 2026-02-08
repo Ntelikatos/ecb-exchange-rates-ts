@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Release script: bumps version, commits, tags, pushes, and creates a GitHub release.
+#
 # Usage:
 #   ./scripts/release.sh patch   # 0.1.2 -> 0.1.3
 #   ./scripts/release.sh minor   # 0.1.2 -> 0.2.0
@@ -11,6 +12,12 @@ BUMP="${1:-patch}"
 
 if [[ "$BUMP" != "patch" && "$BUMP" != "minor" && "$BUMP" != "major" ]]; then
   echo "Usage: ./scripts/release.sh [patch|minor|major]"
+  exit 1
+fi
+
+# Ensure gh is authenticated
+if ! gh auth status &>/dev/null; then
+  echo "Error: gh CLI is not authenticated. Run 'gh auth login' first."
   exit 1
 fi
 

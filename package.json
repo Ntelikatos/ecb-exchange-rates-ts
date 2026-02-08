@@ -38,7 +38,7 @@
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build",
-    "release": "bash scripts/release.sh"
+    "release": "pwsh scripts/release.ps1"
   },
   "keywords": [
     "ecb",
