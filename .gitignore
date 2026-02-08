@@ -1,0 +1,48 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# pnpm
+.pnpm-debug.log
+
+# npm
+*.tgz
+.npmrc
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test artifacts
+coverage/
+.vitest/
+
+# Turbo / build caches
+.turbo/
+.cache/
+
+# omc research artifacts
+.omc/
+
+# Scratch / demo files
+demo.ts
