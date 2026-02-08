@@ -129,7 +129,7 @@ try {
 - **Business days only** - the ECB publishes rates on TARGET working days (no weekends or holidays).
 - **Data from 1999** - historical rates go back to January 4, 1999.
 - **Daily reference rates** - set around 16:00 CET each business day.
-- **Node.js >= 18** - uses native `fetch` (no polyfill needed).
+- **Node.js >= 20** - uses native `fetch` (no polyfill needed).
 
 ## License
 
