@@ -1,0 +1,362 @@
+# ecb-exchange-rates-ts
+
+> TypeScript client for the European Central Bank exchange rate API. Zero dependencies, ~2 KB minified. Fetches daily reference rates for 29 currencies via the ECB SDMX REST API. Requires Node.js >= 20 (native fetch). No API key needed.
+
+Package name: `ecb-exchange-rates-ts`
+Install: `npm install ecb-exchange-rates-ts`
+License: MIT
+Node.js: >= 20.0.0
+Formats: ESM and CJS with full TypeScript declarations
+
+## Quick Start
+
+```ts
+import { EcbClient } from "ecb-exchange-rates-ts";
+
+const ecb = new EcbClient();
+
+// Get EUR/USD rate for a specific date
+const result = await ecb.getRate("USD", "2025-01-15");
+console.log(result.rates.get("2025-01-15")); // 1.03
+
+// Convert 100 EUR to USD
+const conversion = await ecb.convert(100, "USD", "2025-01-15");
+// { amount: 103, rate: 1.03, date: "2025-01-15", currency: "USD" }
+```
+
+## EcbClient Constructor
+
+```ts
+import { EcbClient } from "ecb-exchange-rates-ts";
+
+const ecb = new EcbClient(config?: EcbClientConfig);
+```
+
+`EcbClientConfig` fields (all optional):
+
+- `baseCurrency?: string` — Default base currency. Defaults to `"EUR"`. Can be overridden per-query.
+- `timeoutMs?: number` — Request timeout in milliseconds. Defaults to `30000`.
+- `baseUrl?: string` — ECB SDMX API base URL. Defaults to `"https://data-api.ecb.europa.eu/service"`.
+- `fetchFn?: typeof globalThis.fetch` — Custom fetch implementation for dependency injection or testing.
+
+Example with custom config:
+
+```ts
+const ecb = new EcbClient({
+  baseCurrency: "USD",
+  timeoutMs: 10_000,
+});
+```
+
+## Methods
+
+### getRate(currency, date)
+
+Get the exchange rate for a single currency on a specific date.
+
+```ts
+async getRate(currency: string, date: string): Promise<ExchangeRateResult>
+```
+
+- `currency` — Target currency code, 3-letter uppercase ISO 4217 (e.g. `"USD"`, `"GBP"`)
+- `date` — Date in YYYY-MM-DD format
+
+Returns `ExchangeRateResult`:
+- `base: string` — The base currency (e.g. `"EUR"`)
+- `currency: string` — The target currency
+- `rates: ReadonlyMap<string, number>` — Map of date string to rate value
+
+```ts
+const result = await ecb.getRate("USD", "2025-01-15");
+console.log(result.base);     // "EUR"
+console.log(result.currency); // "USD"
+console.log(result.rates.get("2025-01-15")); // 1.03
+```
+
+Throws `EcbNoDataError` if the date is a weekend, holiday, or future date.
+
+### getRateHistory(currency, startDate, endDate, frequency?)
+
+Get exchange rates for a single currency over a date range.
+
+```ts
+async getRateHistory(
+  currency: string,
+  startDate: string,
+  endDate: string,
+  frequency?: Frequency
+): Promise<ExchangeRateResult>
+```
+
+- `currency` — Target currency code
+- `startDate` — Start date (YYYY-MM-DD, inclusive)
+- `endDate` — End date (YYYY-MM-DD, inclusive)
+- `frequency` — Optional. `"D"` (daily, default), `"M"` (monthly), or `"A"` (annual)
+
+```ts
+const history = await ecb.getRateHistory("GBP", "2025-01-01", "2025-01-31");
+for (const [date, rate] of history.rates) {
+  console.log(`${date}: ${rate}`);
+}
+```
+
+### getRates(query)
+
+Get exchange rates for multiple currencies.
+
+```ts
+async getRates(query: ExchangeRateQuery): Promise<ExchangeRatesResult>
+```
+
+`ExchangeRateQuery` fields:
+- `currencies: readonly string[]` — One or more target currency codes (required)
+- `startDate: string` — Start date in YYYY-MM-DD format (required)
+- `endDate?: string` — End date in YYYY-MM-DD format (optional)
+- `frequency?: Frequency` — `"D"`, `"M"`, or `"A"` (optional, defaults to `"D"`)
+- `baseCurrency?: string` — Override base currency for this query (optional)
+
+Returns `ExchangeRatesResult`:
+- `base: string` — The base currency
+- `currencies: readonly string[]` — The queried currencies
+- `rates: ReadonlyMap<string, Readonly<Record<string, number>>>` — Map of date to currency-rate record
+
+```ts
+const multi = await ecb.getRates({
+  currencies: ["USD", "GBP", "JPY"],
+  startDate: "2025-01-01",
+  endDate: "2025-01-31",
+});
+
+for (const [date, rates] of multi.rates) {
+  console.log(`${date}: USD=${rates.USD}, GBP=${rates.GBP}`);
+}
+```
+
+### convert(amount, currency, date)
+
+Convert an amount from the base currency to a target currency.
+
+```ts
+async convert(amount: number, currency: string, date: string): Promise<ConversionResult>
+```
+
+Returns `ConversionResult`:
+- `amount: number` — Converted amount (rounded to 2 decimal places)
+- `rate: number` — The exchange rate used
+- `date: string` — The actual date of the rate
+- `currency: string` — The target currency code
+
+```ts
+const result = await ecb.convert(100, "USD", "2025-01-15");
+console.log(result);
+// { amount: 103, rate: 1.03, date: "2025-01-15", currency: "USD" }
+```
+
+Throws `EcbNoDataError` if no rate is available for the date.
+
+### getObservations(query)
+
+Get raw observations for full control over the data.
+
+```ts
+async getObservations(query: ExchangeRateQuery): Promise<ExchangeRateObservation[]>
+```
+
+Returns an array of `ExchangeRateObservation`:
+- `date: string` — Observation date
+- `currency: string` — Target currency code
+- `baseCurrency: string` — Base currency code
+- `rate: number` — The exchange rate value
+
+```ts
+const obs = await ecb.getObservations({
+  currencies: ["CHF"],
+  startDate: "2025-01-15",
+  endDate: "2025-01-17",
+});
+
+for (const o of obs) {
+  console.log(`${o.date}: 1 ${o.baseCurrency} = ${o.rate} ${o.currency}`);
+}
+```
+
+### EcbClient.withFetcher(fetcher, config?)
+
+Static factory method to create a client with a custom HTTP fetcher. Useful for testing.
+
+```ts
+import type { HttpFetcher } from "ecb-exchange-rates-ts";
+
+const mockFetcher: HttpFetcher = {
+  async get(url: string): Promise<string> {
+    return '{"header":...}'; // mock SDMX-JSON response
+  }
+};
+
+const client = EcbClient.withFetcher(mockFetcher, { baseCurrency: "USD" });
+```
+
+## Error Handling
+
+All errors extend `EcbError` which extends `Error`. Each error has a `code` string property for programmatic handling.
+
+```ts
+import {
+  EcbError,
+  EcbApiError,
+  EcbNetworkError,
+  EcbNoDataError,
+  EcbParseError,
+  EcbValidationError,
+} from "ecb-exchange-rates-ts";
+```
+
+### EcbValidationError (code: "ECB_VALIDATION_ERROR")
+
+Thrown when query parameters are invalid. Examples: empty currency array, invalid currency code format (must be 3 uppercase letters), invalid date format (must be YYYY-MM-DD), endDate before startDate.
+
+```ts
+try {
+  await ecb.getRate("invalid", "2025-01-15");
+} catch (error) {
+  if (error instanceof EcbValidationError) {
+    console.log(error.message); // "Currency code must be 3 uppercase letters: invalid"
+    console.log(error.code);    // "ECB_VALIDATION_ERROR"
+  }
+}
+```
+
+### EcbNoDataError (code: "ECB_NO_DATA")
+
+Thrown when the ECB API returns a valid response but contains no data. This happens on weekends, holidays, or future dates when the ECB does not publish rates.
+
+Properties:
+- `currencies: readonly string[]` — The currencies that were queried
+- `startDate: string` — The start date of the query
+- `endDate?: string` — The end date of the query (if provided)
+
+```ts
+try {
+  await ecb.getRate("USD", "2025-01-18"); // Saturday
+} catch (error) {
+  if (error instanceof EcbNoDataError) {
+    console.log(error.message);    // "No exchange rate data available for USD on 2025-01-18..."
+    console.log(error.code);       // "ECB_NO_DATA"
+    console.log(error.currencies); // ["USD"]
+    console.log(error.startDate);  // "2025-01-18"
+  }
+}
+```
+
+### EcbApiError (code: "ECB_API_ERROR")
+
+Thrown when the ECB API returns an HTTP error status code.
+
+Properties:
+- `statusCode: number` — HTTP status code (e.g. 404, 500)
+- `statusText: string` — HTTP status text
+
+```ts
+try {
+  await ecb.getRate("USD", "2025-01-15");
+} catch (error) {
+  if (error instanceof EcbApiError) {
+    console.log(error.statusCode); // 404
+    console.log(error.statusText); // "Not Found"
+  }
+}
+```
+
+### EcbNetworkError (code: "ECB_NETWORK_ERROR")
+
+Thrown when the network request fails (timeout, DNS resolution failure, connection refused, etc.). The original error is available as `error.cause`.
+
+```ts
+try {
+  await ecb.getRate("USD", "2025-01-15");
+} catch (error) {
+  if (error instanceof EcbNetworkError) {
+    console.log(error.message); // "Request timed out after 30000ms: ..."
+    console.log(error.cause);   // Original error
+  }
+}
+```
+
+### EcbParseError (code: "ECB_PARSE_ERROR")
+
+Thrown when the API response cannot be parsed as valid SDMX-JSON.
+
+### Catch-all pattern
+
+All errors extend `EcbError`, so you can catch all package errors in one block:
+
+```ts
+try {
+  await ecb.getRate("USD", "2025-01-15");
+} catch (error) {
+  if (error instanceof EcbError) {
+    console.log(error.code);    // "ECB_VALIDATION_ERROR" | "ECB_NO_DATA" | "ECB_API_ERROR" | ...
+    console.log(error.message); // Human-readable error message
+  }
+}
+```
+
+## Configurable Base Currency
+
+The default base currency is EUR, but it is fully configurable. Set it at the client level:
+
+```ts
+const ecb = new EcbClient({ baseCurrency: "USD" });
+const result = await ecb.getRate("GBP", "2025-01-15");
+// result.base === "USD"
+```
+
+Or override it per-query:
+
+```ts
+const ecb = new EcbClient(); // defaults to EUR
+const result = await ecb.getRates({
+  currencies: ["GBP", "JPY"],
+  startDate: "2025-01-15",
+  baseCurrency: "USD", // override for this query only
+});
+```
+
+## Supported Currencies
+
+The ECB publishes daily reference rates for these 29 currencies: AUD, BGN, BRL, CAD, CHF, CNY, CZK, DKK, EUR, GBP, HKD, HUF, IDR, ILS, INR, ISK, JPY, KRW, MXN, MYR, NOK, NZD, PHP, PLN, RON, SEK, SGD, THB, TRY, USD, ZAR.
+
+The `CurrencyCode` type is exported for type-safe usage:
+
+```ts
+import type { CurrencyCode } from "ecb-exchange-rates-ts";
+const currency: CurrencyCode = "USD";
+```
+
+## Exported Types
+
+All types are exported for consumers:
+
+```ts
+import type {
+  ConversionResult,
+  CurrencyCode,
+  EcbClientConfig,
+  ExchangeRateObservation,
+  ExchangeRateQuery,
+  ExchangeRateResult,
+  ExchangeRatesResult,
+  Frequency,
+  HttpFetcher,
+} from "ecb-exchange-rates-ts";
+```
+
+## Important Notes
+
+- The ECB does not publish rates on weekends or holidays. Querying these dates throws `EcbNoDataError`.
+- Historical rates are available back to January 4, 1999.
+- Daily reference rates are published around 16:00 CET each business day.
+- No API key is required. The ECB data API is free and open.
+- The package uses native `fetch` and requires Node.js >= 20.
+- Bundle size is ~2 KB minified + gzipped with zero runtime dependencies.
+- Both ESM (`import`) and CJS (`require`) are supported.
