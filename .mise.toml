@@ -1,3 +1,9 @@
 [tools]
 node = "lts"
 pnpm = "latest"
+
+[env]
+# Unset env vars injected by mise's node shim that cause npm 11 warnings
+npm_config_npm-globalconfig = false
+npm_config_verify-deps-before-run = false
+npm_config__jsr-registry = false

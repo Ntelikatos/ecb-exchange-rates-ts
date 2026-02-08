@@ -51,9 +51,13 @@ pnpm build
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 # Bump version (updates package.json, no git commit)
-$newVersion = npm version $Bump --no-git-tag-version
+$newVersion = npm version $Bump --no-git-tag-version --loglevel=error
 if ($LASTEXITCODE -ne 0) { exit 1 }
 Write-Host "Bumped to $newVersion" -ForegroundColor Green
+
+# Re-format package.json (npm version uses its own formatting)
+pnpm lint:fix
+if ($LASTEXITCODE -ne 0) { exit 1 }
 
 # Commit, tag, push
 git add package.json
