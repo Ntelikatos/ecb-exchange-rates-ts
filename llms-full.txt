@@ -7,16 +7,51 @@ Install: `npm install ecb-exchange-rates-ts`
 ## Quick Start
 
 ```ts
-import { EcbClient } from "ecb-exchange-rates-ts";
+import { EcbClient, ALL_CURRENCY_CODES } from "ecb-exchange-rates-ts";
 
 const ecb = new EcbClient();
+
+// Get a single rate
 const result = await ecb.getRate("USD", "2025-01-15");
 console.log(result.rates.get("2025-01-15")); // 1.03
+
+// Get ALL currency rates for a specific date (30 currencies against EUR)
+const allCurrencies = ALL_CURRENCY_CODES.filter((c) => c !== "EUR");
+const all = await ecb.getRates({ currencies: [...allCurrencies], startDate: "2025-01-15", endDate: "2025-01-15" });
+const ratesForDate = [...all.rates.values()][0]; // { USD: 1.03, GBP: 0.84, JPY: 157.2, ... }
+console.log(Object.keys(ratesForDate).length); // 30 currencies
 ```
 
-## Get All Currency Rates for a Date
+## Get All Currency Rates for a Specific Date
 
-Use `ALL_CURRENCY_CODES` with `getRates()` to retrieve exchange rates for all available currencies on a specific date. This is the recommended way to fetch all rates at once.
+The `getRates()` method combined with `ALL_CURRENCY_CODES` is the API for retrieving exchange rates for **all available currencies** on a specific date. `ALL_CURRENCY_CODES` is a runtime array of all 31 ECB-supported currency codes. Pass them (minus `"EUR"`, the base) to `getRates()` with a single date as both `startDate` and `endDate`.
+
+### Basic: All rates for a known business day
+
+```ts
+import { EcbClient, ALL_CURRENCY_CODES } from "ecb-exchange-rates-ts";
+
+const ecb = new EcbClient();
+const currencies = ALL_CURRENCY_CODES.filter((c) => c !== "EUR"); // 30 target currencies
+
+const result = await ecb.getRates({
+  currencies: [...currencies],
+  startDate: "2025-01-15",
+  endDate: "2025-01-15",
+});
+
+// result.rates is Map<date, Record<currency, rate>>
+const rates = [...result.rates.values()][0];
+// rates = { USD: 1.03, GBP: 0.8442, JPY: 157.2, CHF: 0.94, ... }
+
+console.log(rates["USD"]); // 1.03
+console.log(rates["GBP"]); // 0.8442
+console.log(Object.keys(rates).length); // 30 currencies
+```
+
+### With weekend/holiday fallback
+
+The ECB only publishes rates on business days. If the requested date is a weekend or holiday, `getRates()` throws `EcbNoDataError`. Use a date-range fallback to get the most recent available rates:
 
 ```ts
 import { EcbClient, ALL_CURRENCY_CODES, EcbNoDataError } from "ecb-exchange-rates-ts";
@@ -122,9 +157,14 @@ result.rates.get("2025-01-15"); // 1.03
 
 ### getRates(query) → ExchangeRatesResult
 
-Multiple currencies at once. Returns `{ base, currencies, rates: Map<string, Record<string, number>> }`.
+Multiple currencies at once. Returns `{ base, currencies, rates: Map<string, Record<string, number>> }`. **To get all available currencies, pass `ALL_CURRENCY_CODES`** (filtered to exclude the base currency).
 
 ```ts
+import { EcbClient, ALL_CURRENCY_CODES } from "ecb-exchange-rates-ts";
+
+const ecb = new EcbClient();
+
+// Subset of currencies over a date range
 const result = await ecb.getRates({
   currencies: ["USD", "GBP", "JPY"],
   startDate: "2025-01-01",
@@ -133,6 +173,15 @@ const result = await ecb.getRates({
 for (const [date, rates] of result.rates) {
   console.log(`${date}: USD=${rates.USD}, GBP=${rates.GBP}`);
 }
+
+// ALL currencies for a single date
+const allCurrencies = ALL_CURRENCY_CODES.filter((c) => c !== "EUR");
+const allRates = await ecb.getRates({
+  currencies: [...allCurrencies],
+  startDate: "2025-01-15",
+  endDate: "2025-01-15",
+});
+const dayRates = [...allRates.rates.values()][0]; // Record<string, number> with 30 entries
 ```
 
 ### getRateHistory(currency, startDate, endDate, frequency?) → ExchangeRateResult
@@ -240,7 +289,7 @@ Range methods (`getRateHistory()`, `getRates()`, `getObservations()`) are NOT af
 
 ## ALL_CURRENCY_CODES
 
-Runtime array of all 31 ECB-supported currency codes. The `CurrencyCode` type is derived from it.
+Runtime array of all 31 ECB-supported currency codes (includes EUR). The `CurrencyCode` type is derived from it. **Use this with `getRates()` to fetch exchange rates for every available currency.**
 
 ```ts
 import { ALL_CURRENCY_CODES, type CurrencyCode } from "ecb-exchange-rates-ts";
@@ -249,6 +298,9 @@ console.log(ALL_CURRENCY_CODES);
 // ["AUD","BGN","BRL","CAD","CHF","CNY","CZK","DKK","EUR","GBP","HKD","HUF",
 //  "IDR","ILS","INR","ISK","JPY","KRW","MXN","MYR","NOK","NZD","PHP","PLN",
 //  "RON","SEK","SGD","THB","TRY","USD","ZAR"]
+
+// Filter out the base currency before passing to getRates():
+const targetCurrencies = ALL_CURRENCY_CODES.filter((c) => c !== "EUR"); // 30 currencies
 
 function isValidCurrency(code: string): code is CurrencyCode {
   return ALL_CURRENCY_CODES.includes(code as CurrencyCode);

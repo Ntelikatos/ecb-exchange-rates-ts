@@ -1,6 +1,6 @@
 # ecb-exchange-rates-ts
 
-> TypeScript client for the European Central Bank exchange rate API. Zero dependencies, ~2 KB minified. Fetches daily reference rates for 29 currencies via the ECB SDMX REST API. Requires Node.js >= 20 (native fetch). No API key needed.
+> TypeScript client for the European Central Bank exchange rate API. Zero dependencies, ~2 KB minified. Fetches daily reference rates for 31 currencies via the ECB SDMX REST API. Requires Node.js >= 20 (native fetch). No API key needed.
 
 The package name on npm is `ecb-exchange-rates-ts`. Install with `npm install ecb-exchange-rates-ts`.
 
