@@ -57,3 +57,24 @@ export class EcbValidationError extends EcbError {
     this.name = "EcbValidationError";
   }
 }
+
+/**
+ * Thrown when the ECB API returns a valid response but contains no data.
+ * This typically happens when querying dates where no rates are published
+ * (weekends, holidays, future dates).
+ */
+export class EcbNoDataError extends EcbError {
+  public readonly startDate: string;
+  public readonly endDate?: string;
+  public readonly currencies: readonly string[];
+
+  constructor(currencies: readonly string[], startDate: string, endDate?: string) {
+    const dateRange = endDate && endDate !== startDate ? `${startDate} to ${endDate}` : startDate;
+    const message = `No exchange rate data available for ${currencies.join(", ")} on ${dateRange}. The ECB does not publish rates on weekends, holidays, or future dates.`;
+    super(message, "ECB_NO_DATA");
+    this.name = "EcbNoDataError";
+    this.startDate = startDate;
+    this.endDate = endDate;
+    this.currencies = currencies;
+  }
+}

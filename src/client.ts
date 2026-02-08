@@ -1,6 +1,8 @@
+import { EcbNoDataError } from "./errors/index.js";
 import { parseJsonResponse, parseSdmxJson } from "./parsers/sdmx-json-parser.js";
 import { FetchHttpFetcher, type HttpFetcher } from "./services/http-fetcher.js";
 import type {
+  ConversionResult,
   EcbClientConfig,
   ExchangeRateObservation,
   ExchangeRateQuery,
@@ -135,19 +137,19 @@ export class EcbClient {
    * @param date - The date for the exchange rate (YYYY-MM-DD)
    * @returns The converted amount, or null if no rate is available
    */
-  async convert(
-    amount: number,
-    currency: string,
-    date: string,
-  ): Promise<{ amount: number; rate: number; date: string; currency: string } | null> {
-    const result = await this.getRate(currency, date);
-    const firstEntry = result.rates.entries().next();
-
-    if (firstEntry.done) {
-      return null;
+  async convert(amount: number, currency: string, date: string): Promise<ConversionResult | null> {
+    let result: ExchangeRateResult;
+    try {
+      result = await this.getRate(currency, date);
+    } catch (error) {
+      if (error instanceof EcbNoDataError) {
+        return null;
+      }
+      throw error;
     }
 
-    const [actualDate, rate] = firstEntry.value;
+    const entry = result.rates.entries().next().value as [string, number];
+    const [actualDate, rate] = entry;
 
     return {
       amount: Math.round(amount * rate * 100) / 100,
@@ -174,7 +176,13 @@ export class EcbClient {
     const url = buildExchangeRateUrl(query, this.baseUrl);
     const raw = await this.fetcher.get(url);
     const json = parseSdmxJson(raw);
-    return parseJsonResponse(json);
+    const observations = parseJsonResponse(json);
+
+    if (observations.length === 0) {
+      throw new EcbNoDataError(query.currencies, query.startDate, query.endDate);
+    }
+
+    return observations;
   }
 
   private async getSingleCurrencyRates(query: ExchangeRateQuery): Promise<ExchangeRateResult> {

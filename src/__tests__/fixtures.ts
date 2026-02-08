@@ -122,6 +122,44 @@ export const MULTI_CURRENCY_RESPONSE: SdmxJsonResponse = {
 };
 
 /**
+ * Empty response: valid SDMX-JSON structure but no observations.
+ * This is what the ECB returns for weekends, holidays, or future dates.
+ */
+export const EMPTY_RESPONSE: SdmxJsonResponse = {
+  header: {
+    id: "test-empty",
+    test: false,
+    prepared: "2026-02-07T21:00:00.000+00:00",
+    sender: { id: "ECB" },
+  },
+  dataSets: [],
+  structure: {
+    name: "Exchange Rates",
+    dimensions: {
+      series: [
+        { id: "FREQ", name: "Frequency", values: [{ id: "D", name: "Daily" }] },
+        { id: "CURRENCY", name: "Currency", values: [{ id: "USD", name: "US dollar" }] },
+        {
+          id: "CURRENCY_DENOM",
+          name: "Currency denominator",
+          values: [{ id: "EUR", name: "Euro" }],
+        },
+        { id: "EXR_TYPE", name: "Exchange rate type", values: [{ id: "SP00", name: "Spot" }] },
+        { id: "EXR_SUFFIX", name: "Series variation", values: [{ id: "A", name: "Average" }] },
+      ],
+      observation: [
+        {
+          id: "TIME_PERIOD",
+          name: "Time period or range",
+          role: "time",
+          values: [],
+        },
+      ],
+    },
+  },
+};
+
+/**
  * Mock HTTP fetcher for testing the client without network calls.
  */
 export class MockFetcher implements HttpFetcher {

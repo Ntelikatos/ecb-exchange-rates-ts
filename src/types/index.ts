@@ -82,6 +82,20 @@ export interface ExchangeRatesResult {
 }
 
 /**
+ * Result of a currency conversion via `EcbClient.convert()`.
+ */
+export interface ConversionResult {
+  /** The converted amount in the target currency (rounded to 2 decimal places). */
+  readonly amount: number;
+  /** The exchange rate used for the conversion. */
+  readonly rate: number;
+  /** The date of the exchange rate used. */
+  readonly date: string;
+  /** The target currency code. */
+  readonly currency: string;
+}
+
+/**
  * Parameters to query exchange rates.
  */
 export interface ExchangeRateQuery {

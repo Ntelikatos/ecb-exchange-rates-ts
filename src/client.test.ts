@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  EMPTY_RESPONSE,
   MULTI_CURRENCY_RESPONSE,
   MockFetcher,
   SINGLE_CURRENCY_RESPONSE,
 } from "./__tests__/fixtures.js";
 import { EcbClient } from "./client.js";
-import { EcbValidationError } from "./errors/index.js";
-import type { SdmxJsonResponse } from "./types/index.js";
+import { EcbNoDataError, EcbValidationError } from "./errors/index.js";
 
 describe("EcbClient", () => {
   describe("getRate", () => {
@@ -112,8 +112,7 @@ describe("EcbClient", () => {
     });
 
     it("returns null when no data available", async () => {
-      const emptyResponse: SdmxJsonResponse = { ...SINGLE_CURRENCY_RESPONSE, dataSets: [] };
-      const client = EcbClient.withFetcher(new MockFetcher(emptyResponse));
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
       const conversion = await client.convert(100, "USD", "2025-01-15");
 
       expect(conversion).toBeNull();
@@ -223,17 +222,15 @@ describe("EcbClient", () => {
   });
 
   describe("getRates edge cases", () => {
-    it("handles empty response with correct fallback base currency", async () => {
-      const emptyResponse: SdmxJsonResponse = { ...SINGLE_CURRENCY_RESPONSE, dataSets: [] };
-      const client = EcbClient.withFetcher(new MockFetcher(emptyResponse));
+    it("throws EcbNoDataError for empty response", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
 
-      const result = await client.getRates({
-        currencies: ["USD"],
-        startDate: "2025-01-15",
-      });
-
-      expect(result.rates.size).toBe(0);
-      expect(result.base).toBe("EUR");
+      await expect(
+        client.getRates({
+          currencies: ["USD"],
+          startDate: "2025-01-15",
+        }),
+      ).rejects.toThrow(EcbNoDataError);
     });
 
     it("groups observations by date in multi-currency result", async () => {
@@ -250,27 +247,72 @@ describe("EcbClient", () => {
     });
   });
 
-  describe("getRate edge cases", () => {
-    it("falls back to resolved baseCurrency when observations are empty", async () => {
-      const emptyResponse: SdmxJsonResponse = { ...SINGLE_CURRENCY_RESPONSE, dataSets: [] };
-      const client = EcbClient.withFetcher(new MockFetcher(emptyResponse));
+  describe("EcbNoDataError handling", () => {
+    it("throws EcbNoDataError with currencies and date info", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
 
-      const result = await client.getRate("USD", "2025-01-15");
-
-      expect(result.rates.size).toBe(0);
-      expect(result.base).toBe("EUR");
-      expect(result.currency).toBe("USD");
+      try {
+        await client.getRates({
+          currencies: ["USD", "GBP"],
+          startDate: "2025-01-18",
+          endDate: "2025-01-19",
+        });
+        expect.fail("Expected EcbNoDataError to be thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(EcbNoDataError);
+        const noDataError = error as InstanceType<typeof EcbNoDataError>;
+        expect(noDataError.code).toBe("ECB_NO_DATA");
+        expect(noDataError.currencies).toEqual(["USD", "GBP"]);
+        expect(noDataError.startDate).toBe("2025-01-18");
+        expect(noDataError.endDate).toBe("2025-01-19");
+        expect(noDataError.message).toContain("USD, GBP");
+        expect(noDataError.message).toContain("2025-01-18 to 2025-01-19");
+      }
     });
 
-    it("uses custom baseCurrency from client config when observations are empty", async () => {
-      const emptyResponse: SdmxJsonResponse = { ...SINGLE_CURRENCY_RESPONSE, dataSets: [] };
-      const client = EcbClient.withFetcher(new MockFetcher(emptyResponse), {
-        baseCurrency: "USD",
-      });
+    it("shows single date in message when startDate equals endDate", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
 
-      const result = await client.getRate("GBP", "2025-01-15");
+      await expect(client.getRate("USD", "2025-01-18")).rejects.toThrow(/on 2025-01-18\./);
+    });
 
-      expect(result.base).toBe("USD");
+    it("getObservations throws EcbNoDataError for empty response", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
+
+      await expect(
+        client.getObservations({ currencies: ["USD"], startDate: "2025-01-18" }),
+      ).rejects.toThrow(EcbNoDataError);
+    });
+
+    it("convert returns null instead of throwing for empty response", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
+      const result = await client.convert(100, "USD", "2025-01-18");
+
+      expect(result).toBeNull();
+    });
+
+    it("is an instance of EcbError for catch-all handling", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
+
+      await expect(client.getRate("USD", "2025-01-18")).rejects.toThrow(
+        expect.objectContaining({ name: "EcbNoDataError" }),
+      );
+    });
+  });
+
+  describe("getRate edge cases", () => {
+    it("throws EcbNoDataError when no observations returned", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
+
+      await expect(client.getRate("USD", "2025-01-15")).rejects.toThrow(EcbNoDataError);
+    });
+
+    it("throws EcbNoDataError with useful message for weekend dates", async () => {
+      const client = EcbClient.withFetcher(new MockFetcher(EMPTY_RESPONSE));
+
+      await expect(client.getRate("USD", "2025-01-18")).rejects.toThrow(
+        /No exchange rate data available/,
+      );
     });
   });
 });

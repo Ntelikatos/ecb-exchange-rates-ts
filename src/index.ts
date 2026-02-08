@@ -6,6 +6,7 @@ export { EcbClient } from "./client.js";
 
 // Types
 export type {
+  ConversionResult,
   CurrencyCode,
   EcbClientConfig,
   ExchangeRateObservation,
@@ -28,6 +29,7 @@ export {
   EcbError,
   EcbApiError,
   EcbNetworkError,
+  EcbNoDataError,
   EcbParseError,
   EcbValidationError,
 } from "./errors/index.js";
