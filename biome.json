@@ -16,6 +16,6 @@
     "lineWidth": 100
   },
   "files": {
-    "ignore": ["dist", "coverage", "node_modules", ".omc"]
+    "ignore": ["dist", "coverage", "node_modules", ".omc", "demo.ts"]
   }
 }
