@@ -8,6 +8,7 @@ Fetch exchange rates from the European Central Bank in two lines of code. No API
 [![npm downloads](https://img.shields.io/npm/dm/ecb-exchange-rates-ts)](https://www.npmjs.com/package/ecb-exchange-rates-ts)
 [![codecov](https://codecov.io/gh/Ntelikatos/ecb-exchange-rates/branch/main/graph/badge.svg)](https://codecov.io/gh/Ntelikatos/ecb-exchange-rates)
 [![license](https://img.shields.io/npm/l/ecb-exchange-rates-ts)](LICENSE)
+[![Context7](https://img.shields.io/badge/Context7-Indexed-blue)](https://context7.com/ntelikatos/ecb-exchange-rates)
 
 ## The problem
 
